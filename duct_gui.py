@@ -4,6 +4,9 @@ import tkinter as tk
 from tkinter import ttk
 import ezdxf
 from ezdxf import units
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
 # Lists used to store duct data
 duct_name_list = []
@@ -91,14 +94,18 @@ def draw_cone(filename: str, radius1: float, radius2: float, end_angle: float) -
 # ---------------------------------------------------------------------------
 
 def display_csv_content(total_qty, total_sqft, total_weight):
-    """Refresh the CSV preview in the GUI."""
-    csv_content.delete(1.0, tk.END)
-    with open(csv_filename, 'r') as file:
-        for line in file:
-            csv_content.insert(tk.END, line)
-    csv_content.insert(tk.END, f"\nTotal QTY: {total_qty.get()}\n")
-    csv_content.insert(tk.END, f"Total SQFT: {total_sqft.get()}\n")
-    csv_content.insert(tk.END, f"Total Weight: {total_weight.get()}\n")
+    """Refresh the data table in the GUI."""
+    for row in tree.get_children():
+        tree.delete(row)
+    with open(csv_filename, "r") as file:
+        reader = csv.reader(file)
+        next(reader, None)  # header
+        for line in reader:
+            if line and line[0] != "Total:":
+                tree.insert("", tk.END, values=line)
+    total_qty_label.config(text=f"Total QTY: {total_qty.get()}")
+    total_sqft_label.config(text=f"Total SQFT: {total_sqft.get()}")
+    total_weight_label.config(text=f"Total Weight: {total_weight.get()}")
 
 
 def csv_write():
@@ -120,6 +127,42 @@ def csv_write():
             'Total:', sum(duct_qty_list), '', '', '', '',
             sum(duct_total_weight_list), sum(duct_total_sqft_list)
         ])
+
+
+def export_pdf() -> None:
+    """Generate a PDF summary using the collected data."""
+    pdf_name = csv_filename.replace('.csv', '.pdf')
+    headers = [
+        'Name', 'Type', 'QTY', 'Thickness', 'Diameter',
+        'BBox Width', 'BBox Length', 'BBox Weight', 'BBox SQFT'
+    ]
+    data = [headers]
+    for row in zip(
+        duct_name_list,
+        duct_type_list,
+        duct_qty_list,
+        duct_thickness_list,
+        duct_diameter,
+        duct_bwidth_list,
+        duct_blength_list,
+        duct_total_weight_list,
+        duct_total_sqft_list,
+    ):
+        data.append(list(row))
+    data.append([
+        'Total', sum(duct_qty_list), '', '', '', '', '',
+        sum(duct_total_weight_list), sum(duct_total_sqft_list)
+    ])
+    doc = SimpleDocTemplate(pdf_name, pagesize=letter)
+    table = Table(data, repeatRows=1)
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+    ])
+    table.setStyle(style)
+    doc.build([table])
 
 
 # ---------------------------------------------------------------------------
@@ -454,7 +497,24 @@ project_name_entry.grid(row=3, column=1, pady=2, padx=5, sticky='NWES')
 overview_info_button = ttk.Button(root, text='Enter', command=overview_info)
 overview_info_button.grid(row=4, column=1, pady=2, padx=5, sticky='NWES')
 
-csv_content = tk.Text(root, height=30, width=100)
-csv_content.grid(row=1, rowspan=30, column=3, columnspan=2, padx=5, pady=5, sticky='NWES')
+tree_columns = [
+    'Name', 'Type', 'QTY', 'Thickness', 'Diameter',
+    'BBox Width', 'BBox Length', 'BBox Weight', 'BBox SQFT'
+]
+tree = ttk.Treeview(root, columns=tree_columns, show='headings', height=30)
+for col in tree_columns:
+    tree.heading(col, text=col)
+    tree.column(col, anchor='center')
+tree.grid(row=1, rowspan=30, column=3, columnspan=2, padx=5, pady=5, sticky='NWES')
+
+total_qty_label = ttk.Label(root, text='Total QTY: 0')
+total_qty_label.grid(row=31, column=3, sticky='w', padx=5)
+total_sqft_label = ttk.Label(root, text='Total SQFT: 0')
+total_sqft_label.grid(row=32, column=3, sticky='w', padx=5)
+total_weight_label = ttk.Label(root, text='Total Weight: 0')
+total_weight_label.grid(row=33, column=3, sticky='w', padx=5)
+
+export_pdf_button = ttk.Button(root, text='Export PDF', command=export_pdf)
+export_pdf_button.grid(row=34, column=3, pady=5, padx=5, sticky='w')
 
 root.mainloop()

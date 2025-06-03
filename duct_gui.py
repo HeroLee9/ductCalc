@@ -6,7 +6,8 @@ import ezdxf
 from ezdxf import units
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer
+import webbrowser
 
 # Lists used to store duct data
 duct_name_list = []
@@ -18,6 +19,7 @@ duct_blength_list = []
 duct_total_sqft_list = []
 duct_total_weight_list = []
 duct_diameter = []
+weight_by_thickness = {}
 
 # Track the currently selected duct type so users can change their
 # selection before submitting a duct.
@@ -127,6 +129,8 @@ def csv_write():
             'Total:', sum(duct_qty_list), '', '', '', '',
             sum(duct_total_weight_list), sum(duct_total_sqft_list)
         ])
+        for t, w in sorted(weight_by_thickness.items()):
+            writer.writerow([f'Total Weight {t}', '', '', '', '', '', w, ''])
 
 
 def export_pdf() -> None:
@@ -162,7 +166,19 @@ def export_pdf() -> None:
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
     ])
     table.setStyle(style)
-    doc.build([table])
+
+    summary_data = [['Thickness', 'Total Weight']]
+    for t, w in sorted(weight_by_thickness.items()):
+        summary_data.append([str(t), round(w, 2)])
+    summary_table = Table(summary_data, hAlign='LEFT')
+    summary_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+    ])
+    summary_table.setStyle(summary_style)
+
+    doc.build([table, Spacer(1, 12), summary_table])
+    webbrowser.open_new(pdf_name)
 
 
 # ---------------------------------------------------------------------------
@@ -209,6 +225,7 @@ def duct_name_and_type():
             duct_total_sqft_list.append(round(sqft, 2))
             duct_total_weight_list.append(round(weight, 2))
             duct_diameter.append(diameter)
+            weight_by_thickness[round(thickness, 2)] = weight_by_thickness.get(round(thickness, 2), 0) + round(weight, 2)
 
             total_qty.set(sum(duct_qty_list))
             total_sqft.set(sum(duct_total_sqft_list))
@@ -293,6 +310,7 @@ def duct_name_and_type():
             duct_total_sqft_list.append(round(b_sqft, 2))
             duct_total_weight_list.append(round(b_weight, 2))
             duct_diameter.append(round(s_dia, 2))
+            weight_by_thickness[round(thickness, 2)] = weight_by_thickness.get(round(thickness, 2), 0) + round(b_weight, 2)
 
             total_qty.set(sum(duct_qty_list))
             total_sqft.set(sum(duct_total_sqft_list))
@@ -377,6 +395,7 @@ def duct_name_and_type():
             duct_total_sqft_list.append(round(sqft, 2))
             duct_total_weight_list.append(round(weight, 2))
             duct_diameter.append(round(diameter, 2))
+            weight_by_thickness[round(thickness, 2)] = weight_by_thickness.get(round(thickness, 2), 0) + round(weight, 2)
 
             total_qty.set(sum(duct_qty_list))
             total_sqft.set(sum(duct_total_sqft_list))

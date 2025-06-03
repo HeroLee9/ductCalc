@@ -16,6 +16,10 @@ duct_total_sqft_list = []
 duct_total_weight_list = []
 duct_diameter = []
 
+# Track the currently selected duct type so users can change their
+# selection before submitting a duct.
+current_duct_type = None
+
 
 def get_r(x, y, z):
     return math.sqrt((0.5 * x - 0.5 * y) ** 2 + z ** 2)
@@ -124,19 +128,20 @@ def duct_name_and_type():
     """Create widgets for entering duct information."""
 
     def updated_combo_value(event):
-        duct_type = combo_value.get()
-        duct_name = duct_name_entry.get()
-        duct_name_list.append(duct_name)
-        duct_type_list.append(duct_type)
+        # Remember the selected type but don't commit it to the data lists
+        # until the user submits the duct. This allows them to change the
+        # selection without corrupting the collected data.
+        global current_duct_type
+        current_duct_type = combo_value.get()
 
         for widget in duct_widgets:
             widget.destroy()
 
-        if duct_type == 'Straight':
+        if current_duct_type == 'Straight':
             create_straight_duct_widgets()
-        elif duct_type == 'Reducing Cone':
+        elif current_duct_type == 'Reducing Cone':
             create_reducing_cone_widgets()
-        elif duct_type == 'Gored Elbow':
+        elif current_duct_type == 'Gored Elbow':
             create_gored_elbow_widgets()
 
     def create_straight_duct_widgets():
@@ -167,6 +172,8 @@ def duct_name_and_type():
             total_weight.set(sum(duct_total_weight_list))
 
             duct_name = duct_name_entry.get()
+            duct_name_list.append(duct_name)
+            duct_type_list.append(current_duct_type)
             draw_straight(circumference, length, f"{duct_name}.dxf")
 
             for w in duct_widgets:
@@ -249,6 +256,8 @@ def duct_name_and_type():
             total_weight.set(sum(duct_total_weight_list))
 
             duct_name = duct_name_entry.get()
+            duct_name_list.append(duct_name)
+            duct_type_list.append(current_duct_type)
             draw_cone(f"{duct_name}.dxf", p, q, d)
 
             for w in duct_widgets:
@@ -330,6 +339,10 @@ def duct_name_and_type():
             total_sqft.set(sum(duct_total_sqft_list))
             total_weight.set(sum(duct_total_weight_list))
 
+            duct_name = duct_name_entry.get()
+            duct_name_list.append(duct_name)
+            duct_type_list.append(current_duct_type)
+
             for w in duct_widgets:
                 w.destroy()
             duct_name_entry.delete(0, 'end')
@@ -389,6 +402,9 @@ def duct_name_and_type():
     duct_type_box = ttk.Combobox(root, values=types, state='readonly', textvariable=combo_value)
     duct_type_box.bind("<<ComboboxSelected>>", updated_combo_value)
     duct_type_box.current(0)
+    # Initialize the current duct type with the combobox default
+    global current_duct_type
+    current_duct_type = types[0]
     duct_type_box.grid(row=5, column=1, pady=2, padx=5, sticky='NWES')
 
     global duct_widgets

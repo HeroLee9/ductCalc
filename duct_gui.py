@@ -46,6 +46,25 @@ def get_sagitta(x, y):
     return x - (math.sqrt(x ** 2 - (y / 2) ** 2))
 
 
+def get_cone_bbox(inner_radius: float, outer_radius: float, angle_deg: float) -> tuple:
+    """Return width and height of the bounding box for a cone flat pattern."""
+    angles = [0, angle_deg]
+    for a in (90, 180, 270, 360):
+        if 0 < a < angle_deg:
+            angles.append(a)
+    xs, ys = [], []
+    for ang in angles:
+        rad = math.radians(ang)
+        for r in (inner_radius, outer_radius):
+            xs.append(r * math.cos(rad))
+            ys.append(r * math.sin(rad))
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(0, min(ys)), max(ys)
+    width = max_x - min_x
+    height = max_y - min_y
+    return width, height
+
+
 # --- DXF drawing helpers (copied from ductCalc.py) -------------------------
 
 def draw_straight(width: float, length: float, filename: str) -> None:
@@ -292,13 +311,9 @@ def duct_name_and_type():
             p = get_p(height, l_dia, s_dia)  # Flat pattern inside radius
             q = r + p  # Flat pattern outside radius (large diameter)
             l_inner_arc = math.pi * s_dia  # Length of inner arc
-            l_outer_arc = math.pi * l_dia  # Length of outer arc
             a = l_inner_arc / p
             d = (a * 180) / math.pi
-            b_length = get_length(q, l_outer_arc, thickness)
-            b_arc = get_arc(p, l_inner_arc, thickness)
-            sagitta = get_sagitta(p, b_arc)
-            b_width = sagitta + r
+            b_width, b_length = get_cone_bbox(p, q, d)
             b_sqft = (b_width * b_length) / 144
             b_volume = b_width * b_length * thickness
             b_weight = b_volume * steel_weight
